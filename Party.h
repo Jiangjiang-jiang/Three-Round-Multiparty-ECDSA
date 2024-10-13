@@ -16,6 +16,7 @@ public:
     RoundTwoData getRoundTwoData() const;
     const RoundThreeData& getRoundThreeData() const;
     const Signature& getSignature() const;
+    void setPartySet(const std::set<size_t>& party_set);
 
     std::tuple<Commitment, CommitmentSecret> commit(const OpenSSL::ECPoint &Q) const;
     std::tuple<Commitment, CommitmentSecret> commit(const OpenSSL::ECPoint &Q1, const OpenSSL::ECPoint &Q2) const;
@@ -29,8 +30,8 @@ public:
     bool verify(const Signature& signature, const std::vector<unsigned char>& m) const;
 
 private:
-    void partial_decrypt(const CL_HSMqk &pp, const CL_HSMqk::SecretKey &ski, CL_HSMqk::CipherText &encrypted_message, QFI &part_dec);
-    CL_HSMqk::ClearText agg_partial_ciphertext(std::unordered_map<size_t, QFI>& decryptions, CL_HSMqk::CipherText &c) const;
+    void partial_decrypt(const CL_HSMqk &pp, const CL_HSMqk::SecretKey &ski, const CL_HSMqk::CipherText &encrypted_message, QFI &part_dec);
+    CL_HSMqk::ClearText agg_partial_ciphertext(std::unordered_map<size_t, QFI>& pd_map, const CL_HSMqk::CipherText &c) const;
 
     std::unique_ptr<RoundOneData> round1Data = nullptr;
     std::unique_ptr<RoundOneLocalData> round1LocalData = nullptr;
@@ -42,7 +43,7 @@ private:
     std::unique_ptr<Signature> signature = nullptr;
 
     GroupParams& params;
-    unsigned int id;
+    size_t id;
     CL_HSMqk::PublicKey pk;
     std::vector<CL_HSMqk::PublicKey> pki_v;
     std::vector<OpenSSL::ECPoint> Xi_v;
@@ -50,6 +51,8 @@ private:
 
     CL_HSMqk::SecretKey ski;
     OpenSSL::BN xi;
+
+    std::set<size_t> S;
 };
 
 #endif //PARTY_H

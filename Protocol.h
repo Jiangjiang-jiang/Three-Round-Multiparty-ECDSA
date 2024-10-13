@@ -14,6 +14,7 @@ public:
     explicit Protocol(GroupParams& params);
     void dkg();
     bool run();
+    std::set<size_t> select_parties(RandGen& rng, size_t n, size_t t);
     std::vector<Party> S;
     GroupParams& params;
 };

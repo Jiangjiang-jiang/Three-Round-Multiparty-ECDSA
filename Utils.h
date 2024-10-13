@@ -17,7 +17,7 @@ using CommitmentSecret = std::vector<unsigned char>;
 void randomize_message(std::vector<unsigned char>& m);
 Mpz factorial(size_t n);
 Mpz cl_lagrange_at_zero(std::set<size_t> S, size_t i, const Mpz& delta);
-OpenSSL::BN lagrange_at_zero(const OpenSSL::ECGroup &E, size_t n, size_t i);
+OpenSSL::BN lagrange_at_zero(const OpenSSL::ECGroup &E, std::set<size_t> S, size_t i);
 
 // Data structures for different rounds of the protocol.
 struct RoundOneData {
@@ -26,7 +26,7 @@ struct RoundOneData {
     Commitment com_i;
     CL_HSMqk_ZKAoKProof zk_proof_cl_enc;
 
-    RoundOneData(const size_t id, const CL_HSMqk::CipherText& share, const Commitment com_i, CL_HSMqk_ZKAoKProof& proof) : id(id), enc_phi_share(share), com_i(com_i), zk_proof_cl_enc(proof) {}
+    RoundOneData(const size_t id, const CL_HSMqk::CipherText& share, const Commitment& com_i, const CL_HSMqk_ZKAoKProof& proof) : id(id), enc_phi_share(share), com_i(com_i), zk_proof_cl_enc(proof) {}
 };
 
 struct RoundOneLocalData {
@@ -40,7 +40,7 @@ struct RoundOneLocalData {
     std::unordered_map<size_t, Commitment> com_list;
     ECNIZKProof zk_proof_dl;
 
-    RoundOneLocalData(const size_t id, const OpenSSL::ECGroup& E, const OpenSSL::BN& phi, const OpenSSL::BN& k, const OpenSSL::ECPoint& R, const CL_HSMqk::CipherText& ct, const Commitment com_i, const CommitmentSecret open_i, const ECNIZKProof& zk_proof)
+    RoundOneLocalData(const size_t id, const OpenSSL::ECGroup& E, const OpenSSL::BN& phi, const OpenSSL::BN& k, const OpenSSL::ECPoint& R, const CL_HSMqk::CipherText& ct, const Commitment& com_i, const CommitmentSecret& open_i, const ECNIZKProof& zk_proof)
         : id(id), phi_share(phi), k_share(k), R_share(E, R), enc_phi_share(ct), com_i(com_i), open_i(open_i), zk_proof_dl(E, zk_proof)
     {
         com_list.insert({this->id, com_i});
@@ -57,7 +57,7 @@ struct RoundTwoData {
     CL_HSMqk_DL_CL_ZKProof zk_proof_dl_cl_x;
     CL_HSMqk_DL_CL_ZKProof zk_proof_dl_cl_k;
 
-    RoundTwoData(const size_t id, const OpenSSL::ECGroup& E, const CL_HSMqk::CipherText& phi_x, const CL_HSMqk::CipherText& phi_k, const OpenSSL::ECPoint& R, const CommitmentSecret open_i, const ECNIZKProof& zk_proof_dl, const CL_HSMqk_DL_CL_ZKProof& zk_proof_dl_cl_x, const CL_HSMqk_DL_CL_ZKProof& zk_proof_dl_cl_k)
+    RoundTwoData(const size_t id, const OpenSSL::ECGroup& E, const CL_HSMqk::CipherText& phi_x, const CL_HSMqk::CipherText& phi_k, const OpenSSL::ECPoint& R, const CommitmentSecret& open_i, const ECNIZKProof& zk_proof_dl, const CL_HSMqk_DL_CL_ZKProof& zk_proof_dl_cl_x, const CL_HSMqk_DL_CL_ZKProof& zk_proof_dl_cl_k)
         : id(id), phi_x_share(phi_x), phi_k_share(phi_k), Ri(E, R), open_i(open_i), zk_proof_dl(E, zk_proof_dl), zk_proof_dl_cl_x(E, zk_proof_dl_cl_x), zk_proof_dl_cl_k(E, zk_proof_dl_cl_k) {}
 };
 

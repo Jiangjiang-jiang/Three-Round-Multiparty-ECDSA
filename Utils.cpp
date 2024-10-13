@@ -28,12 +28,12 @@ Mpz factorial(size_t n)
 }
 
 // Lagrange interpolation in the context of class groups.
-Mpz cl_lagrange_at_zero(std::set<size_t> S, size_t i, const Mpz& delta)
+Mpz cl_lagrange_at_zero(const std::set<size_t> S, size_t i, const Mpz& delta)
 {
     Mpz numerator("1"), denominator("1"), result;
     for (size_t j : S) {
         if (j != i) {
-            Mpz::mul(numerator, numerator, j + 1);
+            Mpz::mul(numerator, numerator, j);
             if (j > i) {
                 Mpz::mul(denominator, denominator, j - i);
             } else {
@@ -49,15 +49,15 @@ Mpz cl_lagrange_at_zero(std::set<size_t> S, size_t i, const Mpz& delta)
 }
 
 // Lagrange interpolation in the context of elliptic curves.
-OpenSSL::BN lagrange_at_zero(const OpenSSL::ECGroup &E, const size_t n, const size_t i)
+OpenSSL::BN lagrange_at_zero(const OpenSSL::ECGroup &E, const std::set<size_t> S, const size_t i)
 {
     OpenSSL::BN numerator, denominator, result;
 
     numerator = 1UL;
     denominator = 1UL;
-    for (size_t j = 0; j < n; ++j) {
+    for (size_t j : S) {
         if (j != i) {
-            E.mul_by_word_mod_order(numerator, j + 1);
+            E.mul_by_word_mod_order(numerator, j);
             if (j > i) {
                 E.mul_by_word_mod_order(denominator, j - i);
             } else {

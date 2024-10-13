@@ -14,6 +14,7 @@ int main()
     RandGen randgen;
     size_t n = 5;
     size_t t = 3;
+
     GroupParams params(SecLevel::_128, n, t, randgen); // n=5, t=3
 
     Protocol protocol(params);

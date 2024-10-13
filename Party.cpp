@@ -4,18 +4,23 @@
 
 #include "Party.h"
 
-Party::Party(GroupParams& params, size_t id, const CL_HSMqk::PublicKey& pk, const std::vector<CL_HSMqk::PublicKey>& pki_v, const CL_HSMqk::SecretKey& ski, const OpenSSL::ECPoint& X, std::vector<OpenSSL::ECPoint> &X_v, const OpenSSL::BN& xi)
-            : params(params), id(id), pki_v(pki_v), ski(ski), pk(pk), X(params.ec_group, X), Xi_v(), xi(xi)
+Party::Party(GroupParams& params, const size_t id, const CL_HSMqk::PublicKey& pk, const std::vector<CL_HSMqk::PublicKey>& pki_v, const CL_HSMqk::SecretKey& ski, const OpenSSL::ECPoint& X, std::vector<OpenSSL::ECPoint> &X_v, const OpenSSL::BN& xi)
+            : params(params), id(id), pk(pk), pki_v(pki_v), Xi_v(), X(params.ec_group, X), ski(ski), xi(xi), S()
 {
     for(size_t i = 0; i < params.n; ++i)
     {
-        Xi_v.push_back(OpenSSL::ECPoint(params.ec_group, X_v[i]));
+        Xi_v.emplace_back(params.ec_group, X_v[i]);
     }
+}
+
+void Party::setPartySet(const std::set<size_t>& party_set)
+{
+    S = party_set;
 }
 
 const RoundOneData& Party::getRoundOneData() const
 {
-    if (!round1Data) {
+    if (round1Data == nullptr) {
         throw std::runtime_error("Round one data is not initialized.");
     }
     // RoundOneData data_copy(params.ec_group, round1Data->id, round1Data->enc_phi_share, round1Data->com_i, round1Data->zk_proof_cl_enc);
@@ -25,7 +30,7 @@ const RoundOneData& Party::getRoundOneData() const
 
 RoundTwoData Party::getRoundTwoData() const
 {
-    if (!round2Data) {
+    if (round2Data == nullptr) {
         throw std::runtime_error("Round one data is not initialized.");
     }
     RoundTwoData data_copy(round2Data->id, params.ec_group, round2Data->phi_x_share, round2Data->phi_k_share, round2Data->Ri, round2Data->open_i, ECNIZKProof(params.ec_group, round2Data->zk_proof_dl), CL_HSMqk_DL_CL_ZKProof(params.ec_group, round2Data->zk_proof_dl_cl_x), CL_HSMqk_DL_CL_ZKProof(params.ec_group, round2Data->zk_proof_dl_cl_k));
@@ -34,7 +39,7 @@ RoundTwoData Party::getRoundTwoData() const
 
 const RoundThreeData& Party::getRoundThreeData() const
 {
-    if (!round3Data) {
+    if (round3Data == nullptr) {
         throw std::runtime_error("Round one data is not initialized.");
     }
     return *round3Data;
@@ -97,7 +102,7 @@ void Party::handleRoundOne()
     round1LocalData = std::make_unique<RoundOneLocalData>(id, params.ec_group, phi_share, k_share, R_share, enc_phi_share, com_i, open_i, zk_proof_dl);
 }
 
-    void Party::handleRoundTwo(std::vector<RoundOneData>& data)
+void Party::handleRoundTwo(std::vector<RoundOneData>& data)
 {
     RandGen randgen;
 
@@ -115,9 +120,9 @@ void Party::handleRoundOne()
     data.end()
     );
 
-    if (data.size() != params.n)
+    if (data.size() < params.t+1)
     {
-        std::string err_str = "Party " + std::to_string(id) + ": zk proof not up to n";
+        std::string err_str = "Party " + std::to_string(id) + ": zk proof not up to t";
         std::cerr << err_str << std::endl;
         throw std::runtime_error(err_str);
     }
@@ -132,7 +137,7 @@ void Party::handleRoundOne()
     }
 
     OpenSSL::BN omega;
-    omega = lagrange_at_zero (params.ec_group, params.t+1, id-1);
+    omega = lagrange_at_zero(params.ec_group, S, id);
     params.ec_group.mul_mod_order (omega, omega, xi);
     OpenSSL::ECPoint Xi(params.ec_group, omega);
 
@@ -158,7 +163,7 @@ void Party::handleRoundThree(std::vector<RoundTwoData>& data, std::vector<unsign
         bool b = open(round1LocalData->com_list[data.id], data.Ri, data.open_i);
         b &= data.zk_proof_dl.verify(params.ec_group, params.H, data.Ri);
         OpenSSL::ECPoint Xi(params.ec_group, Xi_v[data.id-1]);
-        params.ec_group.scal_mul(Xi,lagrange_at_zero(params.ec_group, params.t+1, data.id-1) , Xi);
+        params.ec_group.scal_mul(Xi,lagrange_at_zero(params.ec_group, S, data.id) , Xi);
         b &= data.zk_proof_dl_cl_x.verify(params.cl_pp, params.ec_group, params.H, OpenSSL::ECPoint(params.ec_group, Xi), round2LocalData->enc_phi, data.phi_x_share);
         b &= data.zk_proof_dl_cl_k.verify(params.cl_pp, params.ec_group, params.H, OpenSSL::ECPoint(params.ec_group, data.Ri), round2LocalData->enc_phi, data.phi_k_share);
         if (!b) {
@@ -292,7 +297,7 @@ bool Party::verify(const Signature& signature, const std::vector<unsigned char>&
 }
 
 
-void Party::partial_decrypt(const CL_HSMqk &pp, const CL_HSMqk::SecretKey &ski, CL_HSMqk::CipherText &encrypted_message, QFI &part_dec)
+void Party::partial_decrypt(const CL_HSMqk &pp, const CL_HSMqk::SecretKey &ski, const CL_HSMqk::CipherText &encrypted_message, QFI &part_dec)
 {
     QFI fm;
     Mpz sk_mpz = Mpz(ski);
@@ -306,14 +311,13 @@ void Party::partial_decrypt(const CL_HSMqk &pp, const CL_HSMqk::SecretKey &ski, 
     part_dec = fm;
 }
 
-CL_HSMqk::ClearText Party::agg_partial_ciphertext(std::unordered_map<size_t, QFI>& decryptions, CL_HSMqk::CipherText &c) const
+CL_HSMqk::ClearText Party::agg_partial_ciphertext(std::unordered_map<size_t, QFI>& pd_map, const CL_HSMqk::CipherText &c) const
 {
     QFI c2 = c.c2();
-    std::vector<size_t> s;
     std::set<size_t> S;
 
-    for (const auto& item : decryptions) {
-        S.insert(item.first - 1);
+    for (const auto& item : pd_map) {
+        S.insert(item.first);
     }
 
     if (S.size() <= params.t) {
@@ -323,7 +327,7 @@ CL_HSMqk::ClearText Party::agg_partial_ciphertext(std::unordered_map<size_t, QFI
     for (size_t s : S)
     {
         QFI num;
-        params.cl_pp.Cl_G().nupow (num, decryptions[s + 1], cl_lagrange_at_zero(S, s, params.delta));
+        params.cl_pp.Cl_G().nupow (num, pd_map[s], cl_lagrange_at_zero(S, s, params.delta));
         params.cl_pp.Cl_Delta().nucompinv(c2, c2, num);
     }
     return CL_HSMqk::ClearText(params.cl_pp, params.cl_pp.dlog_in_F(c2));
