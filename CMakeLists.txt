@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.29)
 project(Threshold_ECDSA)
 
 set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
 
 add_subdirectory(include/bicycl EXCLUDE_FROM_ALL)
 

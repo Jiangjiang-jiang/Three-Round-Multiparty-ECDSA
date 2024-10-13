@@ -1,41 +1,34 @@
-#include <numeric>
-#include <string>
 #include <sstream>
 #include <iostream>
-
-#include <memory>
-#include <set>
-#include <unordered_map>
-#include <vector>
-#include <stdexcept>
+#include <chrono>
 
 #include "bicycl.hpp"
-using namespace std;
-using namespace BICYCL;
-using Commitment = OpenSSL::HashAlgo::Digest;
-using CommitmentSecret = std::vector<unsigned char>;
+
 #include "Utils.h"
-#include "Party.h"
 #include "Protocol.h"
 
+using namespace BICYCL;
 
 int main()
 {
     RandGen randgen;
-    unsigned int n = 5;
-    unsigned int t = 3;
-    GroupParams params(SecLevel::_128, n, t, randgen);
+    size_t n = 5;
+    size_t t = 3;
+    GroupParams params(SecLevel::_128, n, t, randgen); // n=5, t=3
 
     Protocol protocol(params);
     protocol.dkg();
+    auto start = std::chrono::high_resolution_clock::now();
     bool ret = protocol.run();
+    auto end = std::chrono::high_resolution_clock::now();
     if (ret)
     {
-        cout << "run success" << endl;
+        std::chrono::duration<double> duration = end - start;
+        std::cout << "run success in " << duration.count() / static_cast<double>(n) << " s" << std::endl;
     }
     else
     {
-        cout << "run fail" << endl;
+        std::cout << "run fail" << std::endl;
     }
     return 0;
 }
