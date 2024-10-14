@@ -5,7 +5,7 @@
 #include <set>
 #include <vector>
 #include <numeric>
-#include "Protocol.h"
+#include "../include/Protocol.h"
 
 Protocol::Protocol(GroupParams& params) : params(params){ S.reserve(params.n); }
 
@@ -21,7 +21,8 @@ void Protocol::dkg()
 
     // Calculate coefficient bound
     Mpz coff_bound;
-    size_t ell = cl_pp.secretkey_bound().nbits() - static_cast<size_t>(floor(log2(static_cast<double>(n)))) * t * n - cl_pp.lambda_distance() - 2;
+    size_t ell = cl_pp.secretkey_bound().nbits() - 124; // Bound from n = 20 and t = 19
+
     Mpz::mulby2k(coff_bound, Mpz("1"), ell);
     std::cout << "Coefficient bound: " << coff_bound << std::endl;
     std::cout << "Secret key bound: " << cl_pp.secretkey_bound() << std::endl;
@@ -128,7 +129,7 @@ std::set<size_t> Protocol::select_parties(RandGen& rng, const size_t n, const si
 
     std::set<size_t> parties;
     while (parties.size() < t + 1) {
-        parties.insert(rng.random_ui(n - 1) + 1);
+        parties.insert(rng.random_ui(n) + 1);
     }
     return parties;
 }

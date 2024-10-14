@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.29)
-project(Threshold_ECDSA)
+project(Three-Round-Multiparty-ECDSA)
 
 set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Wall")
 
 add_subdirectory(include/bicycl EXCLUDE_FROM_ALL)
 
@@ -12,17 +12,13 @@ find_library(GMPXX_LIBRARY gmpxx)
 find_package (OpenSSL REQUIRED)
 # find_package (benchmark) #Google Benchmark
 
-find_package(OpenSSL REQUIRED)
+file(GLOB SOURCES "src/*.cpp")
 
-add_executable(Threshold_ECDSA main.cpp
-        Party.cpp
-        Party.h
-        Utils.cpp
-        Utils.h
-        Protocol.cpp
-        Protocol.h)
+file(GLOB HEADERS "include/*.h")
 
-target_link_libraries(Threshold_ECDSA
+add_executable(Three-Round-Multiparty-ECDSA ${SOURCES} ${HEADERS})
+
+target_link_libraries(Three-Round-Multiparty-ECDSA
         PRIVATE
         bicycl
         ${GMP_LIBRARY}

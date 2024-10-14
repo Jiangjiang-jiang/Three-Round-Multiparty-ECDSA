@@ -8,7 +8,7 @@
 #include <set>
 #include <unordered_map>
 #include <vector>
-#include "bicycl.hpp"
+#include "bicycl/bicycl.hpp"
 
 using namespace BICYCL;
 using Commitment = OpenSSL::HashAlgo::Digest;

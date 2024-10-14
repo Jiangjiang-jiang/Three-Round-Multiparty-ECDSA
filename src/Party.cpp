@@ -2,7 +2,7 @@
 // Created by qsang on 24-10-12.
 //
 
-#include "Party.h"
+#include "../include/Party.h"
 
 Party::Party(GroupParams& params, const size_t id, const CL_HSMqk::PublicKey& pk, const std::vector<CL_HSMqk::PublicKey>& pki_v, const CL_HSMqk::SecretKey& ski, const OpenSSL::ECPoint& X, std::vector<OpenSSL::ECPoint> &X_v, const OpenSSL::BN& xi)
             : params(params), id(id), pk(pk), pki_v(pki_v), Xi_v(), X(params.ec_group, X), ski(ski), xi(xi), S()

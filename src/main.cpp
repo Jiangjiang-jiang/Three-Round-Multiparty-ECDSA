@@ -2,22 +2,20 @@
 #include <iostream>
 #include <chrono>
 
-#include "bicycl.hpp"
-
-#include "Utils.h"
-#include "Protocol.h"
+#include "../include/Protocol.h"
 
 using namespace BICYCL;
 
 int main()
 {
     RandGen randgen;
-    size_t n = 5;
-    size_t t = 3;
+    size_t n = 20;
+    size_t t = 19;
 
-    GroupParams params(SecLevel::_128, n, t, randgen); // n=5, t=3
+    GroupParams params(SecLevel::_128, n, t, randgen);
 
     Protocol protocol(params);
+
     protocol.dkg();
     auto start = std::chrono::high_resolution_clock::now();
     bool ret = protocol.run();
