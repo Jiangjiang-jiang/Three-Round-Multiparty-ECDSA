@@ -187,16 +187,9 @@ bool Protocol::run() {
     }
 
     // Verify signatures
-    /*return std::all_of(party_id.begin(), party_id.end(),
-        [&](const auto& i) {
-            return S[i-1].verify(data_set_for_offline[&i - &(*party_id.begin())], message);
-        });*/
-    bool flag = true;
-    size_t j=0;
-    for(auto& i : party_id)
-    {
-        flag &= S[i-1].verify(data_set_for_offline[j], message);
-        j++;
-    }
-    return flag;
+    size_t index = 0;
+    return std::all_of(party_id.begin(), party_id.end(),
+        [&](const auto& id) {
+            return S[id-1].verify(data_set_for_offline[index++], message);
+        });
 }
