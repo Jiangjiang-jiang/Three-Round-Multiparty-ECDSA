@@ -5,18 +5,19 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
-#include "Utils.h"
 #include "Party.h"
+#include "Utils.h"
 
 class Protocol
 {
 public:
     explicit Protocol(GroupParams& params);
     void dkg();
-    bool run();
-    std::set<size_t> select_parties(RandGen& rng, size_t n, size_t t);
-    std::vector<Party> S;
+    std::vector<Signature> run(const std::set<size_t>& party_set, const std::vector<unsigned char>& message);
+    bool verify(const std::vector<Signature>& ecdsa_sig, const std::vector<unsigned char>& message) const;
     GroupParams& params;
+    OpenSSL::ECPoint sig_public_key;
+    std::vector<Party> S;
 };
 
 #endif //PROTOCOL_H

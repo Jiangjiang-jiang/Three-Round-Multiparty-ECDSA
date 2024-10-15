@@ -10,7 +10,7 @@
 class Party
 {
 public:
-    Party(GroupParams& params, size_t id, const CL_HSMqk::PublicKey& pk, const std::vector<CL_HSMqk::PublicKey>& pki_v, const CL_HSMqk::SecretKey& ski, const OpenSSL::ECPoint& X, std::vector<OpenSSL::ECPoint> &X_v, const OpenSSL::BN& xi);
+    Party(GroupParams& params, size_t id, const CL_HSMqk::PublicKey& pk, const std::vector<CL_HSMqk::PublicKey>& pki_vector, const CL_HSMqk::SecretKey& ski, const OpenSSL::ECPoint& X, std::vector<OpenSSL::ECPoint> &X_v, const OpenSSL::BN& xi);
 
     const RoundOneData& getRoundOneData() const;
     RoundTwoData getRoundTwoData() const;
@@ -25,13 +25,13 @@ public:
 
     void handleRoundOne();
     void handleRoundTwo(std::vector<RoundOneData>& data);
-    void handleRoundThree(std::vector<RoundTwoData>& data, std::vector<unsigned char>& m);
+    void handleRoundThree(std::vector<RoundTwoData>& data, const std::vector<unsigned char>& m);
     void handleOffline(std::vector<RoundThreeData>& data);
     bool verify(const Signature& signature, const std::vector<unsigned char>& m) const;
 
 private:
-    void partial_decrypt(const CL_HSMqk &pp, const CL_HSMqk::SecretKey &ski, const CL_HSMqk::CipherText &encrypted_message, QFI &part_dec);
-    CL_HSMqk::ClearText agg_partial_ciphertext(std::unordered_map<size_t, QFI>& pd_map, const CL_HSMqk::CipherText &c) const;
+    void partial_decrypt(const CL_HSMqk::SecretKey &ski, const CL_HSMqk::CipherText &encrypted_message, QFI &part_dec);
+    CL_HSMqk::ClearText agg_partial_ciphertext(const std::unordered_map<size_t, QFI>& pd_map, const CL_HSMqk::CipherText &c) const;
 
     std::unique_ptr<RoundOneData> round1Data = nullptr;
     std::unique_ptr<RoundOneLocalData> round1LocalData = nullptr;
@@ -45,8 +45,8 @@ private:
     GroupParams& params;
     size_t id;
     CL_HSMqk::PublicKey pk;
-    std::vector<CL_HSMqk::PublicKey> pki_v;
-    std::vector<OpenSSL::ECPoint> Xi_v;
+    std::vector<CL_HSMqk::PublicKey> pki_vector;
+    std::vector<OpenSSL::ECPoint> Xi_vector;
     OpenSSL::ECPoint X;
 
     CL_HSMqk::SecretKey ski;

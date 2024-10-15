@@ -16,8 +16,9 @@ using CommitmentSecret = std::vector<unsigned char>;
 
 void randomize_message(std::vector<unsigned char>& m);
 Mpz factorial(size_t n);
-Mpz cl_lagrange_at_zero(std::set<size_t> S, size_t i, const Mpz& delta);
-OpenSSL::BN lagrange_at_zero(const OpenSSL::ECGroup &E, std::set<size_t> S, size_t i);
+Mpz cl_lagrange_at_zero(const std::set<size_t>& S, size_t i, const Mpz& delta);
+OpenSSL::BN lagrange_at_zero(const OpenSSL::ECGroup &E, const std::set<size_t>& S, size_t i);
+std::set<size_t> select_parties(RandGen& rng, size_t n, size_t t);
 
 // Data structures for different rounds of the protocol.
 struct RoundOneData {
@@ -43,7 +44,7 @@ struct RoundOneLocalData {
     RoundOneLocalData(const size_t id, const OpenSSL::ECGroup& E, const OpenSSL::BN& phi, const OpenSSL::BN& k, const OpenSSL::ECPoint& R, const CL_HSMqk::CipherText& ct, const Commitment& com_i, const CommitmentSecret& open_i, const ECNIZKProof& zk_proof)
         : id(id), phi_share(phi), k_share(k), R_share(E, R), enc_phi_share(ct), com_i(com_i), open_i(open_i), zk_proof_dl(E, zk_proof)
     {
-        com_list.insert({this->id, com_i});
+        com_list.emplace(this->id, com_i);
     }
 };
 
@@ -100,6 +101,7 @@ struct Signature {
 // Class holding group parameters for the protocol.
 class GroupParams {
 public:
+    SecLevel sec_level;
     size_t n;
     size_t t;
     Mpz delta;
@@ -108,7 +110,7 @@ public:
     CL_HSMqk cl_pp;
 
     GroupParams(SecLevel seclevel, size_t n, size_t t, RandGen& randgen)
-    : n(n), t(t), delta(factorial(n)), ec_group(seclevel), H(seclevel), cl_pp(ec_group.order(), 1, seclevel, randgen) {}
+    : sec_level(seclevel), n(n), t(t), delta(factorial(n)), ec_group(seclevel), H(seclevel), cl_pp(ec_group.order(), 1, seclevel, randgen) {}
 };
 
 #endif //UTILS_H

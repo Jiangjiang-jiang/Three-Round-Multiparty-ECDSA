@@ -7,7 +7,10 @@
 #include <numeric>
 #include "../include/Protocol.h"
 
-Protocol::Protocol(GroupParams& params) : params(params){ S.reserve(params.n); }
+Protocol::Protocol(GroupParams& params) : params(params), sig_public_key(OpenSSL::ECPoint(params.ec_group))
+{
+    S.reserve(params.n);
+}
 
 void Protocol::dkg()
 {
@@ -45,14 +48,14 @@ void Protocol::dkg()
 
     std::vector<Mpz> cl_coefficient;
     cl_coefficient.reserve(t);
-    for (std::size_t k = 0; k < t; ++k) {
+    for (size_t k = 0; k < t; ++k) {
         cl_coefficient.emplace_back(randgen.random_mpz(coff_bound));
     }
 
     // Shamir Secret Sharing
-    for (std::size_t j = 0; j < n; ++j) {
+    for (size_t j = 0; j < n; ++j) {
         Mpz skj = cl_coefficient[t-1];
-        for (std::size_t k = t-1; k > 0; --k) {
+        for (size_t k = t-1; k > 0; --k) {
             Mpz::mul(skj, skj, Mpz(j+1));
             Mpz::add(skj, skj, cl_coefficient[k-1]);
         }
@@ -83,14 +86,14 @@ void Protocol::dkg()
     coefficient.reserve(t);
     coefficient_group.reserve(t);
 
-    for (std::size_t k = 0; k < t; ++k) {
+    for (size_t k = 0; k < t; ++k) {
         coefficient.push_back(ec_group.random_mod_order());
         coefficient_group.emplace_back(ec_group, coefficient.back());
     }
 
-    for (std::size_t j = 0; j < n; ++j) {
+    for (size_t j = 0; j < n; ++j) {
         xi_list[j] = coefficient[t-1];
-        for (std::size_t k = t-1; k > 0; --k) {
+        for (size_t k = t-1; k > 0; --k) {
             ec_group.mul_by_word_mod_order(xi_list[j], j+1);
             ec_group.add_mod_order(xi_list[j], xi_list[j], coefficient[k-1]);
         }
@@ -116,38 +119,17 @@ void Protocol::dkg()
     std::cout << (u == ut ? "ECDSA verify success" : "ECDSA verify failed") << std::endl;
 
     // Initialize parties
-    for(std::size_t i = 0; i < n; ++i) {
+    for(size_t i = 0; i < n; ++i) {
         S.emplace_back(params, i+1, pk, pk_list, sk_list[i], X, Xi_list, xi_list[i]);
     }
+
+    sig_public_key = OpenSSL::ECPoint(ec_group, X);
 }
 
-std::set<size_t> Protocol::select_parties(RandGen& rng, const size_t n, const size_t t)
-{
-    if (t >= n) {
-        throw std::invalid_argument("t cannot be greater than n-1");
-    }
-
-    std::set<size_t> parties;
-    while (parties.size() < t + 1) {
-        parties.insert(rng.random_ui(n) + 1);
-    }
-    return parties;
-}
-
-bool Protocol::run() {
-    const size_t n = params.n;
-    const size_t t = params.t;
-    RandGen randgen;
-    std::set<size_t> party_id = select_parties(randgen, n, t);
-    std::cout << "Selected parties: ";
-    for (const auto& p : party_id) {
-        std::cout << p << " ";
-    }
-    std::cout << std::endl;
-
+std::vector<Signature> Protocol::run(const std::set<size_t>& party_set, const std::vector<unsigned char>& message) {
     for(auto& party : S)
     {
-        party.setPartySet(party_id);
+        party.setPartySet(party_set);
     }
 
     std::vector<RoundOneData> data_set_for_one;
@@ -155,41 +137,58 @@ bool Protocol::run() {
     std::vector<RoundThreeData> data_set_for_three;
     std::vector<Signature> data_set_for_offline;
 
-    data_set_for_one.reserve(party_id.size());
-    data_set_for_two.reserve(party_id.size());
-    data_set_for_three.reserve(party_id.size());
-    data_set_for_offline.reserve(party_id.size());
+    data_set_for_one.reserve(party_set.size());
+    data_set_for_two.reserve(party_set.size());
+    data_set_for_three.reserve(party_set.size());
+    data_set_for_offline.reserve(party_set.size());
 
     // Execute Round 1
-    for(auto& i : party_id) {
+    for(auto& i : party_set) {
         S[i-1].handleRoundOne();
         data_set_for_one.push_back(S[i-1].getRoundOneData());
     }
 
     // Execute Round 2
-    for(auto& i : party_id) {
+    for(auto& i : party_set) {
         S[i-1].handleRoundTwo(data_set_for_one);
         data_set_for_two.push_back(S[i-1].getRoundTwoData());
     }
 
     // Execute Round 3
-    std::vector<unsigned char> message;
-    randomize_message(message);
-    for(auto& i : party_id){
+    for(auto& i : party_set){
         S[i-1].handleRoundThree(data_set_for_two, message);
         data_set_for_three.push_back(S[i-1].getRoundThreeData());
     }
 
     // Execute Offline
-    for(auto& i : party_id){
+    for(auto& i : party_set){
         S[i-1].handleOffline(data_set_for_three);
         data_set_for_offline.push_back(S[i-1].getSignature());
     }
 
+    return data_set_for_offline;
+}
+
+bool Protocol::verify(const std::vector<Signature>& ecdsa_sig, const std::vector<unsigned char>& message) const
+{
     // Verify signatures
-    size_t index = 0;
-    return std::all_of(party_id.begin(), party_id.end(),
-        [&](const auto& id) {
-            return S[id-1].verify(data_set_for_offline[index++], message);
-        });
+    OpenSSL::BN h (params.H(message));
+    OpenSSL::BN inv_s;
+    OpenSSL::BN u1, u2;
+    OpenSSL::ECPoint R (params.ec_group);
+
+    bool flag = true;
+    for(const auto& signature : ecdsa_sig)
+    {
+        params.ec_group.inverse_mod_order(inv_s, signature.s);
+        params.ec_group.mul_mod_order (u1, inv_s, h);
+        params.ec_group.mul_mod_order (u2, inv_s, signature.rx);
+        params.ec_group.scal_mul(R, u1, u2, sig_public_key);
+
+        OpenSSL::BN rx;
+        params.ec_group.x_coord_of_point (rx, R);
+        params.ec_group.mod_order (rx, rx);
+        flag &= (rx == signature.rx);
+    }
+    return flag;
 }

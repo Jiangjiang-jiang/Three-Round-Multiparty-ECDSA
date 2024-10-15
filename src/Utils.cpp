@@ -16,6 +16,19 @@ void randomize_message(std::vector<unsigned char>& m) {
     OpenSSL::random_bytes(m.data(), m.size() * sizeof(unsigned char));
 }
 
+std::set<size_t> select_parties(RandGen& rng, const size_t n, const size_t t)
+{
+    if (t >= n) {
+        throw std::invalid_argument("t cannot be greater than n-1");
+    }
+
+    std::set<size_t> parties;
+    while (parties.size() < t + 1) {
+        parties.insert(rng.random_ui(n) + 1);
+    }
+    return parties;
+}
+
 // Computes the factorial of a number.
 Mpz factorial(size_t n)
 {
@@ -28,7 +41,7 @@ Mpz factorial(size_t n)
 }
 
 // Lagrange interpolation in the context of class groups.
-Mpz cl_lagrange_at_zero(const std::set<size_t> S, size_t i, const Mpz& delta)
+Mpz cl_lagrange_at_zero(const std::set<size_t>& S, size_t i, const Mpz& delta)
 {
     Mpz numerator("1"), denominator("1"), result;
     for (size_t j : S) {
@@ -49,7 +62,7 @@ Mpz cl_lagrange_at_zero(const std::set<size_t> S, size_t i, const Mpz& delta)
 }
 
 // Lagrange interpolation in the context of elliptic curves.
-OpenSSL::BN lagrange_at_zero(const OpenSSL::ECGroup &E, const std::set<size_t> S, const size_t i)
+OpenSSL::BN lagrange_at_zero(const OpenSSL::ECGroup &E, const std::set<size_t>& S, const size_t i)
 {
     OpenSSL::BN numerator, denominator, result;
 
