@@ -959,7 +959,7 @@ CL_HSMqk_Part_Dec_ZKProof::CL_HSMqk_Part_Dec_ZKProof(const CL_HSMqk &C, OpenSSL:
   C.power_of_h(t1_, a);
   C.Cl_G().nupow (t2_, c.c1(), a);
 
-  k_ = k_from_hash(H, pk, c, pd,t1_,t2_);
+  k_ = k_from_hash(H, pk, c, pd, t1_, t2_);
   Mpz::mul (z_, k_, sk);
   Mpz::add (z_, z_, a);
 

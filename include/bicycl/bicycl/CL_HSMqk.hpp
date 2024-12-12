@@ -301,6 +301,18 @@ namespace BICYCL
                const CL_HSMqk::CipherText &c0,
                const CL_HSMqk::CipherText &c1) const;
 
+   size_t get_bytes_dl() const
+   {
+    // return z1_.nbits() / 8 + t1_.get_bytes() + t2_.get_bytes() + s_.get_bytes();
+    return z1_.nbits() / 8 + k_.nbits() / 8;
+   }
+
+   size_t get_bytes_el() const
+   {
+    // return z1_.nbits() / 8 + t1_.get_bytes() + t2_.get_bytes() + 3 * s_.get_bytes();
+    return z1_.nbits() / 8 + k_.nbits() / 8 + s_.get_bytes();
+   }
+
   private:
    Mpz k_from_hash (OpenSSL::HashAlgo &H,
                     const OpenSSL::ECPoint &X,
@@ -311,7 +323,6 @@ namespace BICYCL
    Mpz k_;
    QFI t1_, t2_;
    OpenSSL::ECPoint s_;
-
   };
 
  class CL_HSMqk_Part_Dec_ZKProof
@@ -328,6 +339,10 @@ namespace BICYCL
                            const CL_HSMqk::PublicKey &pk,
                            const CL_HSMqk::CipherText &c,
                            const QFI &pd) const ;
+  size_t get_bytes() const
+  {
+    return z_.nbits() / 8 + t1_.get_bytes() + t2_.get_bytes();
+  }
  private:
   Mpz k_from_hash(OpenSSL::HashAlgo &H, const CL_HSMqk::PublicKey &pk,
                        const CL_HSMqk::CipherText &c,
@@ -350,6 +365,12 @@ namespace BICYCL
       bool verify (const CL_HSMqk &C, OpenSSL::HashAlgo &H,
                    const CL_HSMqk::PublicKey &pk,
                    const CL_HSMqk::CipherText &c) const;
+
+      size_t get_bytes() const
+      {
+       // return (3 * u1_.nbits() + u2_.nbits()) / 8;
+       return (u1_.nbits() + u2_.nbits() + k_.nbits()) / 8;
+      }
 
     private:
       Mpz k_from_hash (OpenSSL::HashAlgo &H, const CL_HSMqk::PublicKey &pk,

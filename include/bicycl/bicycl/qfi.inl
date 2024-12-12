@@ -21,6 +21,11 @@
 #ifndef BICYCL_QFI_INL
 #define BICYCL_QFI_INL
 
+inline
+size_t QFI::get_bytes() const
+{
+  return compressed_repr().nbits() / 8;
+}
 /* */
 inline
 QFI::QFI () : a_(1UL), b_(1UL), c_(1UL)

@@ -243,6 +243,13 @@ CL_HSM_CipherText<Cryptosystem>::CL_HSM_CipherText (const Cryptosystem &C,
 /* */
 template <class Cryptosystem>
 inline
+size_t CL_HSM_CipherText<Cryptosystem>::get_bytes() const
+{
+  return c1_.get_bytes() + c2_.get_bytes();
+}
+
+template <class Cryptosystem>
+inline
 const QFI & CL_HSM_CipherText<Cryptosystem>::c1 () const
 {
   return c1_;

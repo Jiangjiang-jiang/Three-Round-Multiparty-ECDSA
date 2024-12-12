@@ -50,6 +50,7 @@ namespace BICYCL
       Mpz a_, b_, c_;
 
     public:
+      size_t get_bytes() const;
       /** default ctor, set the form to (1,1,1) */
       QFI ();
       /** Use with care */

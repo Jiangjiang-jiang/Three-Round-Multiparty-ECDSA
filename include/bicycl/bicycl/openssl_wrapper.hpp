@@ -166,6 +166,10 @@ namespace BICYCL
 
         /* destructor */
         ~ECPoint ();
+      size_t get_bytes() const
+      {
+        return 32;
+      }
 
       private:
         EC_POINT *P_;

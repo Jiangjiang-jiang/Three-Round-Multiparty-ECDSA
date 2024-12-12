@@ -129,6 +129,8 @@ namespace BICYCL
         /* getters */
         const QFI & c1 () const;
         const QFI & c2 () const;
+
+        size_t get_bytes() const;
     };
 
     #include "CL_HSM_utils.inl"
