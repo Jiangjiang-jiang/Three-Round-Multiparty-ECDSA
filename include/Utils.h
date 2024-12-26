@@ -159,42 +159,34 @@ struct TECDSA
 struct RoundOneData {
     size_t id;
     CL_HSMqk::CipherText enc_phi_share;
-    Commitment com_i;
+    QFI c1;
+    std::unordered_map<size_t, QFI> c2s;
+    CL_HSMqk_PolyVerify_ZKProof zk_proof_poly;
     CL_HSMqk_ZKAoKProof zk_proof_cl_enc;
 
-    RoundOneData(const size_t id, const CL_HSMqk::CipherText& share, const Commitment& com_i, const CL_HSMqk_ZKAoKProof& proof) : id(id), enc_phi_share(share), com_i(com_i), zk_proof_cl_enc(proof) {}
-    size_t getSize()
-    {
-        return sizeof(RoundOneData);
-    }
+    RoundOneData(const size_t id, const CL_HSMqk::CipherText& share, const CL_HSMqk_ZKAoKProof& proof, const QFI& c1, const std::unordered_map<size_t, QFI>& c2s, const CL_HSMqk_PolyVerify_ZKProof& zk_proof_poly) : id(id), enc_phi_share(share), zk_proof_cl_enc(proof), c1(c1), c2s(c2s), zk_proof_poly(zk_proof_poly) {}
 };
 
 struct RoundOneLocalData {
     size_t id;
     OpenSSL::BN phi_share;
     OpenSSL::BN k_share;
-    OpenSSL::ECPoint R_share;
     CL_HSMqk::CipherText enc_phi_share;
-    Commitment com_i;
-    CommitmentSecret open_i;
-    std::unordered_map<size_t, Commitment> com_list;
-    ECNIZKProof zk_proof_dl;
 
-    size_t data_two_size = 0;
+    RoundOneLocalData(const size_t id, const OpenSSL::BN& phi, const OpenSSL::BN& k, const CL_HSMqk::CipherText& ct)
+        : id(id), phi_share(phi), k_share(k), enc_phi_share(ct) {}
+};
 
-    RoundOneLocalData(const size_t id, const OpenSSL::ECGroup& E, const OpenSSL::BN& phi, const OpenSSL::BN& k, const OpenSSL::ECPoint& R, const CL_HSMqk::CipherText& ct, const Commitment& com_i, const CommitmentSecret& open_i, const ECNIZKProof& zk_proof)
-        : id(id), phi_share(phi), k_share(k), R_share(E, R), enc_phi_share(ct), com_i(com_i), open_i(open_i), zk_proof_dl(E, zk_proof)
-    {
-        com_list.emplace(this->id, com_i);
+struct RoundOneRobustData
+{
+    size_t to;
+    CL_HSMqk::CipherText enc_phi_share;
+    QFI c1;
+    // std::vector<QFI> receive_c2s;
+    CL_HSMqk_PolyVerify_ZKProof zk_proof_poly;
+    CL_HSMqk_ZKAoKProof zk_proof_cl_enc;
 
-        data_two_size += sizeof(id);
-        data_two_size += phi_share.num_bytes();
-        data_two_size += k_share.num_bytes();
-        data_two_size += sizeof(enc_phi_share);
-        data_two_size += com_i.size() * sizeof(char);
-        data_two_size += open_i.size() * sizeof(unsigned char);
-
-    }
+    RoundOneRobustData(const size_t to, const CL_HSMqk::CipherText& share, const CL_HSMqk_ZKAoKProof& proof, const QFI& c1, const CL_HSMqk_PolyVerify_ZKProof& zk_proof_poly) : to(to), enc_phi_share(share), zk_proof_cl_enc(proof), c1(c1), zk_proof_poly(zk_proof_poly) {}
 };
 
 struct RoundTwoData {

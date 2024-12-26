@@ -24,7 +24,7 @@ public:
     bool open(const Commitment &c, const OpenSSL::ECPoint &Q1, const OpenSSL::ECPoint &Q2, const CommitmentSecret &r) const;
 
     void handleRoundOne();
-    void handleRoundTwo(std::vector<RoundOneData>& data);
+    void handleRoundTwo(std::vector<RoundOneRobustData>& data, std::vector<QFI>& data2);
     void handleRoundThree(std::vector<RoundTwoData>& data, const std::vector<unsigned char>& m);
     void handleOffline(std::vector<RoundThreeData>& data);
     bool verify(const Signature& signature, const std::vector<unsigned char>& m) const;

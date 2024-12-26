@@ -281,6 +281,43 @@ namespace BICYCL
       size_t F_kerphi_div (Mpz &, const Mpz &, size_t, const Mpz &) const;
   };
 
+ class CL_HSMqk_PolyVerify_ZKProof
+ {
+ public:
+  CL_HSMqk_PolyVerify_ZKProof(const CL_HSMqk &C, const OpenSSL::ECGroup &E,
+                              OpenSSL::HashAlgo &H,
+                              const std::set<size_t>& idlists,
+                              const size_t& t,
+                              const std::unordered_map<size_t, CL_HSMqk::PublicKey> &pks,
+                              const QFI &t1, const std::unordered_map<size_t, QFI> &t2s,
+                              const Mpz &rho,
+                              RandGen &randgen);
+
+  bool verify(const CL_HSMqk &C,
+              const OpenSSL::ECGroup &E,
+              OpenSSL::HashAlgo &H,
+              const std::set<size_t>& idlists,
+              const size_t &t,
+              const std::unordered_map<size_t, CL_HSMqk::PublicKey> &pks,
+              const QFI &t1, const std::unordered_map<size_t, QFI> &t2s) const;
+ private:
+  std::vector<OpenSSL::BN> coeff_from_hash(OpenSSL::HashAlgo &H,
+                                           const std::unordered_map<size_t, QFI> &t2s,
+                                           const std::set<size_t>& idlists,
+                                           int num) const;
+
+  std::unordered_map<size_t, Mpz> c_from_hash(OpenSSL::HashAlgo &H,
+                                   const std::unordered_map<size_t, CL_HSMqk::PublicKey> &pks,
+                                   const std::unordered_map<size_t, QFI> &t2s,
+                                   const std::set<size_t>& idlists) const;
+
+  Mpz k_from_hash(OpenSSL::HashAlgo &H, const QFI &U, const QFI &V,
+                  const QFI &R0, const QFI &V0) const;
+
+  Mpz k_;
+  Mpz rho_;
+ };
+
   /****/
   class CL_HSMqk_DL_CL_ZKProof
   {

@@ -132,25 +132,40 @@ std::vector<Signature> Protocol::run(const std::set<size_t>& party_set, const st
         party.setPartySet(party_set);
     }
 
-    std::vector<RoundOneData> data_set_for_one;
+    std::vector<RoundOneRobustData> data_part_1_set_for_one;
     std::vector<RoundTwoData> data_set_for_two;
     std::vector<RoundThreeData> data_set_for_three;
     std::vector<Signature> data_set_for_offline;
 
-    data_set_for_one.reserve(party_set.size());
+    data_part_1_set_for_one.reserve(party_set.size());
     data_set_for_two.reserve(party_set.size());
     data_set_for_three.reserve(party_set.size());
     data_set_for_offline.reserve(party_set.size());
 
     // Execute Round 1
-    for(auto& i : party_set) {
+    std::vector<std::unordered_map<size_t, QFI>> all_c2s;
+    std::vector<std::vector<QFI>> redistributed(params.n);
+    std::vector<std::unordered_map<size_t, QFI>> ;
+    std::unordered_map<size_t, QFI> c2s;
+    for(auto& i : party_set)
+    {
         S[i-1].handleRoundOne();
-        data_set_for_one.push_back(S[i-1].getRoundOneData());
+        const RoundOneData msg = S[i-1].getRoundOneData();
+        RoundOneRobustData data1(msg.id, msg.enc_phi_share, msg.zk_proof_cl_enc, msg.c1, msg.zk_proof_poly);
+        all_c2s.push_back(msg.c2s);
+        data_part_1_set_for_one.push_back(data1);
+    }
+
+    for(size_t i = 0; i < all_c2s.size(); ++i)
+    {
+        for(const auto& [id, value] : all_c2s[i]) {
+            redistributed[id-1].push_back(value);
+        }
     }
 
     // Execute Round 2
     for(auto& i : party_set) {
-        S[i-1].handleRoundTwo(data_set_for_one);
+        S[i-1].handleRoundTwo(data_part_1_set_for_one, redistributed[i-1]);
         data_set_for_two.push_back(S[i-1].getRoundTwoData());
     }
 

@@ -86,26 +86,67 @@ void Party::handleRoundOne()
     RandGen randgen;
 
     OpenSSL::BN phi_share = params.ec_group.random_mod_order();
-    OpenSSL::BN k_share = params.ec_group.random_mod_order();
-    OpenSSL::ECPoint R_share(params.ec_group, k_share);
-    Mpz r(randgen.random_mpz(params.cl_pp.encrypt_randomness_bound()));
     CL_HSMqk::ClearText ct (params.cl_pp, static_cast<Mpz>(phi_share));
-    CL_HSMqk::CipherText enc_phi_share = params.cl_pp.encrypt(pk, ct, r);
+    Mpz r1(randgen.random_mpz(params.cl_pp.encrypt_randomness_bound()));
+    CL_HSMqk::CipherText enc_phi_share = params.cl_pp.encrypt(pk, ct, r1);
 
-    Commitment com_i;
-    CommitmentSecret open_i;
-    tie(com_i, open_i) = commit(R_share);
+    std::unordered_map<size_t, QFI> c2s;
+    Mpz r2(randgen.random_mpz(params.cl_pp.encrypt_randomness_bound()));
+    QFI c1, c2;
+    params.cl_pp.power_of_h(c1, r2);
 
-    ECNIZKProof zk_proof_dl(params.ec_group, params.H, k_share);
-    CL_HSMqk_ZKAoKProof zk_proof_cl_enc(params.cl_pp, params.H, pk, enc_phi_share, ct, r, randgen);
+    std::vector<OpenSSL::BN> coefficient;
+    coefficient.reserve(params.t+1);
+    OpenSSL::BN value;
 
-    round1Data = std::make_unique<RoundOneData>(id, enc_phi_share, com_i, zk_proof_cl_enc);
-    round1LocalData = std::make_unique<RoundOneLocalData>(id, params.ec_group, phi_share, k_share, R_share, enc_phi_share, com_i, open_i, zk_proof_dl);
+    for (size_t k = 0; k < params.t+1; ++k) {
+        coefficient.push_back(params.ec_group.random_mod_order());
+    }
+
+    std::unordered_map<size_t, OpenSSL::BN> values;
+    for (auto id : S) {
+        value = coefficient[params.t];
+        for (size_t k = params.t; k > 0; --k) {
+            params.ec_group.mul_by_word_mod_order(value, id);
+            params.ec_group.add_mod_order(value, value, coefficient[k-1]);
+        }
+        values.insert({id,value});
+    }
+
+    OpenSSL::BN k_share = values.at(id);
+
+    for(auto id : S)
+    {
+        // CL Encryption
+        QFI fr = params.cl_pp.power_of_f(Mpz(values.at(id)));
+        pki_vector.at(id-1).exponentiation (params.cl_pp, c2, r2); /* pk^rho */
+        params.cl_pp.Cl_Delta().nucomp (c2, c2, fr); //c2 = pk^rho * fm
+        c2s.insert({id,c2});
+    }
+    std::unordered_map<size_t, CL_HSMqk::PublicKey> pks;
+    for(auto id : S)
+    {
+        pks.insert({id, pki_vector[id-1]});
+    }
+
+    CL_HSMqk_PolyVerify_ZKProof zk_proof_poly(params.cl_pp, params.ec_group, params.H, S, params.t, pks, c1, c2s, r2, randgen);
+    CL_HSMqk_ZKAoKProof zk_proof_cl_enc(params.cl_pp, params.H, pk, enc_phi_share, ct, r1, randgen);
+
+    round1Data = std::make_unique<RoundOneData>(id, enc_phi_share, zk_proof_cl_enc, c1, c2s, zk_proof_poly);
+    round1LocalData = std::make_unique<RoundOneLocalData>(id, phi_share, k_share, enc_phi_share);
 }
 
-void Party::handleRoundTwo(std::vector<RoundOneData>& data)
+void Party::handleRoundTwo(std::vector<RoundOneRobustData>& data, std::vector<QFI>& data2)
 {
     RandGen randgen;
+    std::unordered_map<size_t, CL_HSMqk::PublicKey> pks;
+    for(auto id : S)
+    {
+        pks.insert({id, pki_vector[id-1]});
+    }
+
+    using Shares_Opt = std::tuple<QFI, std::unordered_map<size_t, QFI>, CL_HSMqk_PolyVerify_ZKProof>;
+    using Shares = Shares_Opt;
 
     // filter
     data.erase(
@@ -115,6 +156,7 @@ void Party::handleRoundTwo(std::vector<RoundOneData>& data)
             }),
         data.end()
     );
+    // verify: d.zk_proof_poly.verify(params.cl_pp, params.ec_group, params.H, S, params.t, pks, std::get<0>(shares),std::get<1>(shares))
 
     if (data.size() < params.t + 1) {
         throw std::runtime_error("Party " + std::to_string(id) + ": zk proof not up to t");

@@ -932,6 +932,202 @@ void OpenSSL::HashAlgo::hash (const CL_HSMqk::CipherText &c)
 //  : CL_HSMqk_ZKAoK (cryptosystem, std::min (cryptosystem.q().nbits()-1, 128UL), randgen)
 //{
 //}
+
+inline
+CL_HSMqk_PolyVerify_ZKProof::CL_HSMqk_PolyVerify_ZKProof(const CL_HSMqk &C, const OpenSSL::ECGroup &E,
+                              OpenSSL::HashAlgo &H,
+                              const std::set<size_t>& idlists,
+                              const size_t& t,
+                              const std::unordered_map<size_t, CL_HSMqk::PublicKey> &pks,
+                              const QFI &t1, const std::unordered_map<size_t, QFI> &t2s,
+                              const Mpz &rho,
+                              RandGen &randgen) {
+    int degree = idlists.size() - t - 2;
+    auto cs = c_from_hash(H,pks,t2s,idlists);
+    if(degree >= 0)
+    {
+        OpenSSL::BN value;
+        std::vector<OpenSSL::BN> check_coeffs = coeff_from_hash(H,t2s,idlists,degree + 1);
+        QFI temp;
+        QFI prod_U;
+        QFI prod_V;
+        for(auto &i:idlists)
+        {
+            OpenSSL::BN den(1UL);
+            for(auto &j:idlists)
+            {
+                if(j==i)
+                    continue;
+                if(j<i)
+                    E.mul_by_word_mod_order(den,i-j);
+                else
+                {
+                    E.mul_by_word_mod_order(den,j-i);
+                    den.neg();
+                }
+            }
+            E.inverse_mod_order(den,den);
+            value = check_coeffs[degree];
+            for(int d = degree; d>0; d--)
+            {
+                E.mul_by_word_mod_order(value, i);
+                E.add_mod_order(value,value,check_coeffs[d-1]);
+            }
+            E.mul_mod_order(den,den,value);
+            Mpz::mul(cs.at(i),cs.at(i),C.M());
+            Mpz::add(cs.at(i),cs.at(i),Mpz(den));
+            pks.at(i).exponentiation(C,temp,cs.at(i));
+            C.Cl_G().nucomp(prod_U,prod_U,temp);
+            C.Cl_Delta().nupow(temp,t2s.at(i),cs.at(i));
+            C.Cl_Delta().nucomp(prod_V,prod_V,temp);
+        }
+
+        if (C.compact_variant()) {
+            C.from_Cl_DeltaK_to_Cl_Delta(prod_U);
+        }
+        //generate the ZK proof to prove prod_V = prod_U^rho, t1 = g_q^rho
+        int soundness = H.digest_nbits();
+        Mpz B (C.encrypt_randomness_bound());
+        Mpz::mulby2k (B, B, soundness);
+        Mpz::mulby2k (B, B, C.lambda_distance());
+
+        Mpz rho0(randgen.random_mpz(B));
+        QFI R0,V0;
+        C.power_of_h(R0,rho0);
+        C.Cl_Delta().nupow(V0,prod_U,rho0);
+
+
+        k_ = k_from_hash(H,prod_U,prod_V,R0,V0);
+        Mpz::mul(rho_,k_,rho);
+        Mpz::add(rho_,rho_,rho0);
+    }
+
+}
+
+inline
+bool CL_HSMqk_PolyVerify_ZKProof::verify(const CL_HSMqk &C,
+              const OpenSSL::ECGroup &E,
+              OpenSSL::HashAlgo &H,
+              const std::set<size_t>& idlists,
+              const size_t &t,
+              const std::unordered_map<size_t, CL_HSMqk::PublicKey> &pks,
+              const QFI &t1, const std::unordered_map<size_t, QFI> &t2s) const {
+    int degree = idlists.size() - t - 2;
+    auto cs = c_from_hash(H,pks,t2s,idlists);
+    bool ret = true;
+    if(degree >= 0)
+    {
+        OpenSSL::BN value;
+        std::vector<OpenSSL::BN> check_coeffs = coeff_from_hash(H,t2s,idlists,degree + 1);
+        QFI temp;
+        QFI prod_U;
+        QFI prod_V;
+        for(auto &i:idlists)
+        {
+            OpenSSL::BN den(1UL);
+            for(auto &j:idlists)
+            {
+                if(j==i)
+                    continue;
+                if(j<i)
+                    E.mul_by_word_mod_order(den,i-j);
+                else
+                {
+                    E.mul_by_word_mod_order(den,j-i);
+                    den.neg();
+                }
+            }
+            E.inverse_mod_order(den,den);
+            value = check_coeffs[degree];
+            for(int d = degree; d>0; d--)
+            {
+                E.mul_by_word_mod_order(value, i);
+                E.add_mod_order(value,value,check_coeffs[d-1]);
+            }
+            E.mul_mod_order(den,den,value);
+            Mpz::mul(cs.at(i),cs.at(i),C.M());
+            Mpz::add(cs.at(i),cs.at(i),Mpz(den));
+            pks.at(i).exponentiation(C,temp,cs.at(i));
+            C.Cl_G().nucomp(prod_U,prod_U,temp);
+            C.Cl_Delta().nupow(temp,t2s.at(i),cs.at(i));
+            C.Cl_Delta().nucomp(prod_V,prod_V,temp);
+        }
+        if (C.compact_variant()) {
+            C.from_Cl_DeltaK_to_Cl_Delta(prod_U);
+        }
+        //verify the proof of prod_V = prod_U^rho, t1 = g_q^rho
+
+        /* Check rho bound */
+        Mpz B (1UL);
+        int soundness = H.digest_nbits();
+        Mpz::mulby2k (B, B, C.lambda_distance());
+        Mpz::add (B, B, 1UL);
+        Mpz::mulby2k (B, B, soundness);
+        Mpz::mul (B, B, C.encrypt_randomness_bound());
+        ret &= (rho_.sgn() >= 0 && rho_ <= B);
+
+
+        QFI R,R_tmp,V,V_tmp;
+        C.power_of_h(R,rho_);
+        C.Cl_G().nupow(R_tmp,t1,k_);
+        C.Cl_G().nucompinv(R_tmp,R,R_tmp);
+
+        C.Cl_Delta().nupow(V,prod_U,rho_);
+        C.Cl_Delta().nupow(V_tmp,prod_V,k_);
+        C.Cl_Delta().nucompinv(V_tmp,V,V_tmp);
+        Mpz k = k_from_hash(H,prod_U,prod_V,R_tmp,V_tmp);
+        ret &= (k==k_);
+    }
+    return ret;
+
+}
+
+inline
+std::vector<OpenSSL::BN> CL_HSMqk_PolyVerify_ZKProof::coeff_from_hash(OpenSSL::HashAlgo &H,
+                                           const std::unordered_map<size_t, QFI> &t2s,
+                                           const std::set<size_t>& idlists,
+                                           int num) const {
+    std::vector<OpenSSL::BN> result(num);
+    Mpz a(0UL);
+    for(auto id:idlists)
+    {
+        Mpz::add(a,a,t2s.at(id).a());
+    }
+    for(int index = 0; index<num; index++)
+    {
+        auto hash_value = H(a,index);
+        result[index] = OpenSSL::BN(hash_value);
+    }
+    return result;
+}
+
+inline
+  std::unordered_map<size_t, Mpz> CL_HSMqk_PolyVerify_ZKProof::c_from_hash(OpenSSL::HashAlgo &H,
+                           const std::unordered_map<size_t, CL_HSMqk::PublicKey> &pks,
+                           const std::unordered_map<size_t, QFI> &t2s,
+                           const std::set<size_t>& idlists) const {
+
+    std::unordered_map<size_t, Mpz> result;
+    Mpz a(0UL);
+    for(auto id:idlists)
+    {
+        Mpz::add(a,a,t2s.at(id).a());
+    }
+    for(auto id:idlists)
+    {
+        Mpz temp(H(a,pks.at(id),id));
+        Mpz::mod2k(temp,temp,40);
+        result.insert({id,temp});
+    }
+    return result;
+}
+
+inline
+Mpz CL_HSMqk_PolyVerify_ZKProof::k_from_hash(OpenSSL::HashAlgo &H, const QFI &U, const QFI &V, const QFI &R0,
+                                             const QFI &V0) const {
+    return Mpz(H(U,V,R0,V0));
+}
+
 inline
 Mpz CL_HSMqk_Part_Dec_ZKProof::k_from_hash(OpenSSL::HashAlgo &H, const CL_HSMqk::PublicKey &pk,
                        const CL_HSMqk::CipherText &c,
