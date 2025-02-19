@@ -126,65 +126,59 @@ void Protocol::dkg()
     sig_public_key = OpenSSL::ECPoint(ec_group, X);
 }
 
-std::vector<Signature> Protocol::run(const std::set<size_t>& party_set, const std::vector<unsigned char>& message) {
-    for(auto& party : S)
-    {
+void Protocol::run(const std::set<size_t>& party_set, const std::vector<unsigned char>& message, std::vector<Signature*>& data_set_for_offline) {
+    for(auto& party : S) {
         party.setPartySet(party_set);
     }
 
-    std::vector<RoundOneRobustData> data_part_1_set_for_one;
-    std::vector<RoundTwoData> data_set_for_two;
-    std::vector<RoundThreeData> data_set_for_three;
-    std::vector<Signature> data_set_for_offline;
-
-    data_part_1_set_for_one.reserve(party_set.size());
-    data_set_for_two.reserve(party_set.size());
-    data_set_for_three.reserve(party_set.size());
-    data_set_for_offline.reserve(party_set.size());
+    std::vector<RoundOneData*> data_set_for_one(party_set.size(), nullptr);
+    std::vector<RoundTwoData*> data_set_for_two(party_set.size(), nullptr);
+    std::vector<RoundThreeData*> data_set_for_three(party_set.size(), nullptr);
 
     // Execute Round 1
-    std::vector<std::unordered_map<size_t, QFI>> all_c2s;
-    std::vector<std::vector<QFI>> redistributed(params.n);
-    std::vector<std::unordered_map<size_t, QFI>> ;
-    std::unordered_map<size_t, QFI> c2s;
-    for(auto& i : party_set)
-    {
-        S[i-1].handleRoundOne();
-        const RoundOneData msg = S[i-1].getRoundOneData();
-        RoundOneRobustData data1(msg.id, msg.enc_phi_share, msg.zk_proof_cl_enc, msg.c1, msg.zk_proof_poly);
-        all_c2s.push_back(msg.c2s);
-        data_part_1_set_for_one.push_back(data1);
+    size_t index = 0;
+    for(auto& i : party_set) {
+        S[i-1].handleRoundOne(&data_set_for_one[index++]);
     }
 
-    for(size_t i = 0; i < all_c2s.size(); ++i)
-    {
-        for(const auto& [id, value] : all_c2s[i]) {
-            redistributed[id-1].push_back(value);
-        }
+    for(const auto& ptr: data_set_for_one){
+        communication += ptr->getSize();
     }
 
     // Execute Round 2
+    index = 0;
     for(auto& i : party_set) {
-        S[i-1].handleRoundTwo(data_part_1_set_for_one, redistributed[i-1]);
-        data_set_for_two.push_back(S[i-1].getRoundTwoData());
+        S[i-1].handleRoundTwo(data_set_for_one, &data_set_for_two[index++]);
+    }
+
+    for(const auto& ptr: data_set_for_two){
+        communication += ptr->getSize();
     }
 
     // Execute Round 3
+    index = 0;
     for(auto& i : party_set){
-        S[i-1].handleRoundThree(data_set_for_two, message);
-        data_set_for_three.push_back(S[i-1].getRoundThreeData());
+        S[i-1].handleRoundThree(data_set_for_two, message, &data_set_for_three[index++]);
     }
 
     // Execute Offline
+    index = 0;
     for(auto& i : party_set){
-        S[i-1].handleOffline(data_set_for_three);
-        data_set_for_offline.push_back(S[i-1].getSignature());
+        S[i-1].handleOffline(data_set_for_three, &data_set_for_offline[index++]);
     }
 
-    return data_set_for_offline;
+    for(RoundOneData* ptr : data_set_for_one) {
+        delete ptr;
+    }
+    for(RoundTwoData* ptr : data_set_for_two) {
+        delete ptr;
+    }
+    for(RoundThreeData* ptr : data_set_for_three) {
+        delete ptr;
+    }
 }
 
-bool Protocol::verify(const std::vector<Signature>& ecdsa_sig, const std::vector<unsigned char>& message) const
+bool Protocol::verify(const std::vector<Signature*>& ecdsa_sig, const std::vector<unsigned char>& message) const
 {
     // Verify signatures
     OpenSSL::BN h (params.H(message));
@@ -195,15 +189,15 @@ bool Protocol::verify(const std::vector<Signature>& ecdsa_sig, const std::vector
     bool flag = true;
     for(const auto& signature : ecdsa_sig)
     {
-        params.ec_group.inverse_mod_order(inv_s, signature.s);
+        params.ec_group.inverse_mod_order(inv_s, signature->s);
         params.ec_group.mul_mod_order (u1, inv_s, h);
-        params.ec_group.mul_mod_order (u2, inv_s, signature.rx);
+        params.ec_group.mul_mod_order (u2, inv_s, signature->rx);
         params.ec_group.scal_mul(R, u1, u2, sig_public_key);
 
         OpenSSL::BN rx;
         params.ec_group.x_coord_of_point (rx, R);
         params.ec_group.mod_order (rx, rx);
-        flag &= (rx == signature.rx);
+        flag &= (rx == signature->rx);
     }
     return flag;
 }

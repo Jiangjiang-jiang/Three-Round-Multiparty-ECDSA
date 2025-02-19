@@ -288,8 +288,8 @@ namespace BICYCL
                               OpenSSL::HashAlgo &H,
                               const std::set<size_t>& idlists,
                               const size_t& t,
-                              const std::unordered_map<size_t, CL_HSMqk::PublicKey> &pks,
-                              const QFI &t1, const std::unordered_map<size_t, QFI> &t2s,
+                              const std::vector<CL_HSMqk::PublicKey> &pks,
+                              const QFI &t1, const std::vector<QFI> &t2s,
                               const Mpz &rho,
                               RandGen &randgen);
 
@@ -298,21 +298,27 @@ namespace BICYCL
               OpenSSL::HashAlgo &H,
               const std::set<size_t>& idlists,
               const size_t &t,
-              const std::unordered_map<size_t, CL_HSMqk::PublicKey> &pks,
-              const QFI &t1, const std::unordered_map<size_t, QFI> &t2s) const;
+              const std::vector<CL_HSMqk::PublicKey> &pks,
+              const QFI &t1, const std::vector<QFI> &t2s) const;
+
+  size_t get_bytes(){
+         return (k_.nbits() + rho_.nbits()) / 8;
+     }
  private:
   std::vector<OpenSSL::BN> coeff_from_hash(OpenSSL::HashAlgo &H,
-                                           const std::unordered_map<size_t, QFI> &t2s,
+                                           const std::vector<QFI> &t2s,
                                            const std::set<size_t>& idlists,
                                            int num) const;
 
-  std::unordered_map<size_t, Mpz> c_from_hash(OpenSSL::HashAlgo &H,
-                                   const std::unordered_map<size_t, CL_HSMqk::PublicKey> &pks,
-                                   const std::unordered_map<size_t, QFI> &t2s,
+  std::vector<Mpz> c_from_hash(OpenSSL::HashAlgo &H,
+                                   const std::vector<CL_HSMqk::PublicKey> &pks,
+                                   const std::vector<QFI> &t2s,
                                    const std::set<size_t>& idlists) const;
 
   Mpz k_from_hash(OpenSSL::HashAlgo &H, const QFI &U, const QFI &V,
                   const QFI &R0, const QFI &V0) const;
+
+
 
   Mpz k_;
   Mpz rho_;
@@ -341,7 +347,7 @@ namespace BICYCL
    size_t get_bytes_dl() const
    {
     // return z1_.nbits() / 8 + t1_.get_bytes() + t2_.get_bytes() + s_.get_bytes();
-    return z1_.nbits() / 8 + k_.nbits() / 8;
+    return z1_.nbits() / 8 + k_.nbits() / 8; // trick
    }
 
    size_t get_bytes_el() const
@@ -378,7 +384,8 @@ namespace BICYCL
                            const QFI &pd) const ;
   size_t get_bytes() const
   {
-    return z_.nbits() / 8 + t1_.get_bytes() + t2_.get_bytes();
+    // return (z_.nbits() + k_.nbits()) / 8 + t1_.get_bytes() + t2_.get_bytes();
+      return (z_.nbits() + k_.nbits()) / 8;
   }
  private:
   Mpz k_from_hash(OpenSSL::HashAlgo &H, const CL_HSMqk::PublicKey &pk,
@@ -406,7 +413,7 @@ namespace BICYCL
       size_t get_bytes() const
       {
        // return (3 * u1_.nbits() + u2_.nbits()) / 8;
-       return (u1_.nbits() + u2_.nbits() + k_.nbits()) / 8;
+       return (u1_.nbits() + u2_.nbits() + k_.nbits()) / 8; // trick
       }
 
     private:
