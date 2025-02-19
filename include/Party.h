@@ -18,15 +18,10 @@ public:
     const Signature& getSignature() const;
     void setPartySet(const std::set<size_t>& party_set);
 
-    std::tuple<Commitment, CommitmentSecret> commit(const OpenSSL::ECPoint &Q) const;
-    std::tuple<Commitment, CommitmentSecret> commit(const OpenSSL::ECPoint &Q1, const OpenSSL::ECPoint &Q2) const;
-    bool open(const Commitment &c, const OpenSSL::ECPoint &Q, const CommitmentSecret &r) const;
-    bool open(const Commitment &c, const OpenSSL::ECPoint &Q1, const OpenSSL::ECPoint &Q2, const CommitmentSecret &r) const;
-
-    void handleRoundOne();
-    void handleRoundTwo(std::vector<RoundOneData>& data);
-    void handleRoundThree(std::vector<RoundTwoData>& data, const std::vector<unsigned char>& m);
-    void handleOffline(std::vector<RoundThreeData>& data);
+    void handleRoundOne(RoundOneData** send_data);
+    void handleRoundTwo(const std::vector<RoundOneData*>& round_one_data, RoundTwoData** send_data);
+    void handleRoundThree(const std::vector<RoundTwoData*>& round_two_data, const std::vector<unsigned char>& m, RoundThreeData** send_data);
+    void handleOffline(const std::vector<RoundThreeData*>& data, Signature** send_data);
     bool verify(const Signature& signature, const std::vector<unsigned char>& m) const;
 
 private:
@@ -53,6 +48,7 @@ private:
     OpenSSL::BN xi;
 
     std::set<size_t> S;
+    size_t index;
 };
 
 #endif //PARTY_H
